@@ -50,6 +50,16 @@ const Navigation = () => {
               </Link>
             </Button>
             <Button
+              variant={isActive("/leaderboard") ? "default" : "ghost"}
+              size="sm"
+              asChild
+            >
+              <Link to="/leaderboard">
+                <ShieldCheck className="h-4 w-4" />
+                Leaderboard
+              </Link>
+            </Button>
+            <Button
               variant={isActive("/about") ? "default" : "ghost"}
               size="sm"
               asChild
