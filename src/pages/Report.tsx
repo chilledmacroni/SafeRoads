@@ -53,7 +53,7 @@ const Report = () => {
             </p>
           </div>
 
-          <Card className="shadow-lg">
+          <Card className="shadow-lg rounded-3xl border-2 border-primary/10">
             <CardHeader>
               <CardTitle>Violation Details</CardTitle>
               <CardDescription>

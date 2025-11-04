@@ -24,7 +24,7 @@ const About = () => {
 
         {/* Mission Section */}
         <div className="mb-16">
-          <Card className="border-2">
+          <Card className="border-2 rounded-3xl shadow-lg hover:shadow-xl transition-shadow">
             <CardContent className="pt-6">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div>
@@ -50,7 +50,7 @@ const About = () => {
             How Your Reports Make a Difference
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border-2 hover:border-primary transition-all rounded-3xl hover:shadow-lg">
               <CardContent className="pt-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                   <Users className="h-8 w-8 text-primary" />
@@ -63,7 +63,7 @@ const About = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border-2 hover:border-primary transition-all rounded-3xl hover:shadow-lg">
               <CardContent className="pt-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                   <Target className="h-8 w-8 text-primary" />
@@ -76,7 +76,7 @@ const About = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-2 hover:border-primary transition-colors">
+            <Card className="border-2 hover:border-primary transition-all rounded-3xl hover:shadow-lg">
               <CardContent className="pt-6 text-center space-y-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                   <TrendingUp className="h-8 w-8 text-primary" />
@@ -93,7 +93,7 @@ const About = () => {
 
         {/* Process Section */}
         <div className="mb-16">
-          <Card className="border-2 bg-gradient-to-br from-primary/5 to-accent/5">
+          <Card className="border-2 bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl shadow-lg">
             <CardContent className="pt-6">
               <h2 className="text-3xl font-bold mb-8 text-center">Our Process</h2>
               <div className="space-y-6">
@@ -153,19 +153,19 @@ const About = () => {
         <div className="text-center">
           <h2 className="text-3xl font-bold mb-8">Making an Impact</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="border-2">
+            <Card className="border-2 rounded-3xl hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
                 <div className="text-4xl font-bold text-primary mb-2">10,000+</div>
                 <p className="text-muted-foreground">Reports Submitted</p>
               </CardContent>
             </Card>
-            <Card className="border-2">
+            <Card className="border-2 rounded-3xl hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
                 <div className="text-4xl font-bold text-primary mb-2">5,000+</div>
                 <p className="text-muted-foreground">Active Users</p>
               </CardContent>
             </Card>
-            <Card className="border-2">
+            <Card className="border-2 rounded-3xl hover:shadow-lg transition-shadow">
               <CardContent className="pt-6">
                 <div className="text-4xl font-bold text-primary mb-2">85%</div>
                 <p className="text-muted-foreground">Resolution Rate</p>

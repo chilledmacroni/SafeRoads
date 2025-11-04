@@ -38,7 +38,7 @@ const ReportCard = ({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-lg transition-all rounded-3xl border-2 hover:border-primary/50">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
