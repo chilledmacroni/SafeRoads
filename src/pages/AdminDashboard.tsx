@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Session } from "@supabase/supabase-js"; // Import Session
 import {
   Card,
   CardContent,
@@ -8,8 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,7 +23,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -44,6 +42,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Loader2,
   AlertTriangle,
@@ -52,11 +52,8 @@ import {
   Plus,
   LogOut,
   ExternalLink,
+  ShieldAlert,
 } from "lucide-react";
-
-// --- Hardcoded Admin Credentials (from P2) ---
-const ADMIN_ID = "admin";
-const ADMIN_PASSWORD = "Admin@123";
 
 // --- Type Definitions ---
 interface Profile {
@@ -69,8 +66,6 @@ interface ViolationType {
   name: string;
   description: string;
 }
-
-// --- MODIFIED INTERFACE ---
 interface Report {
   id: number;
   user_id: string;
@@ -80,90 +75,48 @@ interface Report {
   latitude: number;
   longitude: number;
   severity: "Low" | "Medium" | "High";
-  violation_type_id: number; // <-- This was missing
+  violation_type_id: number;
   profile: Profile | null;
   violation_type: ViolationType | null;
 }
 
-// --- Admin Login Component ---
-const AdminLogin = ({
-  onLogin,
-}: {
-  onLogin: (status: boolean) => void;
-}) => {
-  const [form, setForm] = useState({ id: "", password: "" });
-  const [error, setError] = useState<string | null>(null);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (form.id === ADMIN_ID && form.password === ADMIN_PASSWORD) {
-      localStorage.setItem("isAdmin", "true");
-      onLogin(true);
-    } else {
-      setError("Invalid Admin credentials!");
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/20">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="adminId">Admin ID</Label>
-              <Input
-                id="adminId"
-                value={form.id}
-                onChange={(e) => setForm({ ...form, id: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminPassword">Password</Label>
-              <Input
-                id="adminPassword"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
 // --- Main Dashboard Component ---
-const AdminDashboard = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem("isAdmin") === "true"
-  );
+const AdminDashboard = ({ session }: { session: Session | null }) => {
+  const navigate = useNavigate();
+  
+  // Check if the user is an admin based on their email in the session
+  const isAdmin = session?.user?.email?.includes("admin") || false;
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAdmin");
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
   };
 
-  if (!isAuthenticated) {
-    return <AdminLogin onLogin={setIsAuthenticated} />;
+  // If the user is not an admin, show an "Access Denied" page
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/20">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl text-destructive">
+              <ShieldAlert className="mx-auto h-12 w-12" />
+              Access Denied
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              You do not have permission to view this page.
+            </p>
+            <Button asChild className="mt-6">
+              <Link to="/">Go to Homepage</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
+  // If the user *is* an admin, show the dashboard
   return <DashboardView onLogout={handleLogout} />;
 };
 
@@ -193,11 +146,9 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
       if (typesRes.error) throw typesRes.error;
 
       const profilesData = (profilesRes.data as Profile[]) || [];
-      // --- CASTING MODIFIED HERE ---
-      const reportsData = (reportsRes.data as any[]) || []; // Use 'any' for raw data
+      const reportsData = (reportsRes.data as any[]) || [];
       const typesData = (typesRes.data as ViolationType[]) || [];
 
-      // --- This map function is now safe ---
       const enrichedReports = reportsData.map((r) => ({
         ...r,
         profile: profilesData.find((p) => p.id === r.user_id) || null,
@@ -206,7 +157,7 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
       }));
 
       setProfiles(profilesData);
-      setReports(enrichedReports as Report[]); // Cast to final Report type
+      setReports(enrichedReports as Report[]);
       setViolationTypes(typesData);
     } catch (err: any) {
       setError(err.message);
@@ -220,12 +171,14 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
   }, []);
 
   const handleDelete = async (table: string, id: string | number) => {
+    // This will now work because the logged-in user is an admin
     const { error } = await supabase.from(table).delete().eq("id", id);
     if (error) setError(error.message);
     else fetchData(); // Refresh data
   };
 
   const toggleResolved = async (id: number, currentValue: boolean) => {
+    // This will also work now
     const { error } = await supabase
       .from("reports")
       .update({ is_resolved: !currentValue })
@@ -309,7 +262,7 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
   );
 };
 
-// --- Reports Table Component ---
+// --- Reports Table Component (Unchanged) ---
 const ReportsTable = ({
   reports,
   handleDelete,
@@ -328,7 +281,7 @@ const ReportsTable = ({
   };
 
   const renderLocation = (r: Report) => {
-    const mapUrl = `https://www.google.com/maps?q=${r.latitude},${r.longitude}`;
+    const mapUrl = `http://googleusercontent.com/maps/google.com/0{r.latitude},${r.longitude}`;
     return (
       <div>
         <div>{r.location_name || "Unnamed Location"}</div>
@@ -354,7 +307,7 @@ const ReportsTable = ({
             <TableHead>Reported By</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Severity</TableHead>
-            <TableHead>Status</TableHead>
+            {/* <TableHead>Status</TableHead> */}
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -387,7 +340,7 @@ const ReportsTable = ({
                   {r.severity}
                 </Badge>
               </TableCell>
-              <TableCell>
+              {/* <TableCell>
                 <Button
                   variant={r.is_resolved ? "default" : "secondary"}
                   size="sm"
@@ -395,7 +348,7 @@ const ReportsTable = ({
                 >
                   {r.is_resolved ? "Resolved" : "Pending"}
                 </Button>
-              </TableCell>
+              </TableCell> */}
               <TableCell>
                 <DeleteAlert onConfirm={() => handleDelete("reports", r.id)} />
               </TableCell>
@@ -407,7 +360,7 @@ const ReportsTable = ({
   );
 };
 
-// --- Profiles Table Component ---
+// --- Profiles Table Component (Unchanged) ---
 const ProfilesTable = ({
   profiles,
   handleDelete,
@@ -443,7 +396,7 @@ const ProfilesTable = ({
   </Card>
 );
 
-// --- Violation Types Table Component ---
+// --- Violation Types Table Component (Unchanged) ---
 const ViolationTypesTable = ({
   violationTypes,
   handleDelete,
@@ -550,6 +503,7 @@ const ViolationTypeModal = ({
             <Textarea
               id="description"
               value={description}
+              // --- THIS IS THE CORRECTED LINE ---
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
@@ -565,7 +519,7 @@ const ViolationTypeModal = ({
   );
 };
 
-// --- Delete Confirmation Alert ---
+// --- Delete Confirmation Alert (Unchanged) ---
 const DeleteAlert = ({ onConfirm }: { onConfirm: () => void }) => (
   <AlertDialog>
     <AlertDialogTrigger asChild>

@@ -64,7 +64,9 @@ const App = () => {
             <Route path="/auth" element={<Auth />} />
             <Route path="/profile" element={<Profile session={session} />} />
             <Route path="/profile/:userId" element={<UserProfile />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            
+            {/* --- THIS IS THE CORRECTED LINE --- */}
+            <Route path="/admin" element={<AdminDashboard session={session} />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

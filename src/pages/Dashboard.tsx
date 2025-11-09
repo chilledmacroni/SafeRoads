@@ -23,9 +23,10 @@ interface Report {
   severity: "Low" | "Medium" | "High";
   title: string;
   description: string;
-  // --- MODIFIED HERE ---
-  // Supabase join returns an array, even for one-to-one
-  violation_types: { name: string; }[]; 
+  violation_types: {
+    name: string;
+    description: string;
+  }[];
 }
 
 const ReportsFeed = () => {
@@ -46,7 +47,7 @@ const ReportsFeed = () => {
           severity,
           title, 
           description,
-          violation_types ( name )
+          violation_types ( name, description )
         `
         )
         .order("created_at", { ascending: false });
@@ -55,7 +56,6 @@ const ReportsFeed = () => {
         setError("Could not fetch the reports feed.");
         console.error(error);
       } else {
-        // --- CASTING IS NOW CORRECT ---
         setReports(data as Report[]);
       }
       setLoading(false);
@@ -104,7 +104,6 @@ const ReportsFeed = () => {
                 <AspectRatio ratio={16 / 9} className="bg-muted">
                   <img
                     src={report.image_url}
-                    // --- MODIFIED HERE ---
                     alt={report.title || report.violation_types[0]?.name}
                     className="rounded-t-lg object-cover w-full h-full"
                   />
@@ -113,20 +112,28 @@ const ReportsFeed = () => {
               <CardContent>
                 <div className="flex justify-between items-center mb-2">
                   <Badge variant="outline">
-                    {/* --- MODIFIED HERE --- */}
                     {report.violation_types[0]?.name}
                   </Badge>
                   <Badge variant={getSeverityBadge(report.severity)}>
                     {report.severity}
                   </Badge>
                 </div>
+
+                <p className="text-xs text-muted-foreground mb-2">
+                  {report.violation_types[0]?.description}
+                </p>
+
                 <CardTitle className="mb-1 text-lg">
-                  {/* --- MODIFIED HERE --- */}
-                  {report.title || report.violation_types[0]?.name}
+                  {report.title || "Violation Report"}
                 </CardTitle>
-                <CardDescription className="text-sm">
-                  {report.description}
-                </CardDescription>
+
+                {report.description && (
+                  <CardDescription className="text-sm mt-1">
+                    <span className="font-semibold">Report Details:</span>{" "}
+                    {report.description}
+                  </CardDescription>
+                )}
+
                 {report.location_name && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
                     <MapPin className="h-3 w-3" />
