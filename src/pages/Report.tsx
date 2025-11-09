@@ -1,178 +1,249 @@
-import { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, MapPin, Camera } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Camera, RefreshCcw, Send, Loader2, AlertTriangle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+
+// ANPR API Endpoint from P2
+const API_URL = "https://hermit-in-my-anpr-api.hf.space/recognise";
+
+// Helper to convert data URL to base64
+const dataURLtoBase64 = (dataUrl: string) => {
+  return dataUrl.split(",")[1];
+};
 
 const Report = () => {
+  const [image, setImage] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    vehicleNumber: "",
-    location: "",
-    violationType: "",
-    description: "",
-    file: null as File | null,
-  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    toast({
-      title: "Report Submitted Successfully",
-      description: "Your traffic violation report has been submitted for review.",
-    });
-
-    setTimeout(() => {
-      navigate("/dashboard");
-    }, 1500);
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { exact: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setApiError("Could not access camera. Please check permissions.");
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData({ ...formData, file: e.target.files[0] });
+  useEffect(() => {
+    startCamera();
+    return () => {
+      // Stop camera stream on unmount
+      if (videoRef.current && videoRef.current.srcObject) {
+        (videoRef.current.srcObject as MediaStream)
+          .getTracks()
+          .forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  const captureImage = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext("2d");
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+      setImage(dataUrl);
+
+      // Stop camera
+      if (video.srcObject) {
+        (video.srcObject as MediaStream)
+          .getTracks()
+          .forEach((track) => track.stop());
+      }
+
+      setIsProcessing(true);
+      setApiError(null);
+
+      try {
+        const base64Image = dataURLtoBase64(dataUrl);
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Image }),
+        });
+
+        if (!response.ok) throw new Error("API request failed");
+        const result = await response.json();
+
+        if (result.plates && result.plates.length > 0) {
+          const plateText = result.plates[0].text;
+          setTitle(`Violation by: ${plateText}`);
+          setDescription(
+            `License plate ${plateText} detected. Confidence: ${(
+              result.plates[0].recognition_confidence * 100
+            ).toFixed(1)}%`
+          );
+          toast({
+            title: "License Plate Detected",
+            description: `Plate: ${plateText}`,
+          });
+        } else {
+          setTitle("General Violation Report");
+          setDescription("No license plate was automatically detected.");
+        }
+      } catch (err) {
+        console.error("Error calling ANPR API:", err);
+        setApiError(
+          "Could not detect license plate. Please enter details manually."
+        );
+        setTitle("General Violation Report");
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const retakePhoto = () => {
+    setImage(null);
+    setTitle("");
+    setDescription("");
+    setApiError(null);
+    setIsProcessing(false);
+    startCamera();
+  };
+
+  const handleNext = () => {
+    if (image) {
+      navigate("/report-details", { state: { image, title, description } });
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-muted/20">
       <Navigation />
-      
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">Report a Violation</h1>
-            <p className="text-muted-foreground text-lg">
-              Help make roads safer by reporting traffic violations
-            </p>
-          </div>
+      <div className="container mx-auto px-4 py-12 flex justify-center">
+        <Card className="w-full max-w-lg shadow-lg">
+          <CardHeader>
+            <CardTitle>Report a Violation</CardTitle>
+            <CardDescription>
+              {image ? "Review the captured photo" : "Capture a photo or video"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative mb-4">
+              {image ? (
+                <img
+                  src={image}
+                  alt="Captured report"
+                  className="rounded-lg w-full"
+                />
+              ) : (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full rounded-lg bg-black"
+                ></video>
+              )}
+              <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+            </div>
 
-          <Card className="shadow-lg rounded-3xl border-2 border-primary/10">
-            <CardHeader>
-              <CardTitle>Violation Details</CardTitle>
-              <CardDescription>
-                Please provide as much detail as possible to help with the investigation
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Photo/Video Upload */}
-                <div className="space-y-2">
-                  <Label htmlFor="file">Photo/Video Evidence *</Label>
-                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
-                    <input
-                      type="file"
-                      id="file"
-                      accept="image/*,video/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                      required
-                    />
-                    <label htmlFor="file" className="cursor-pointer">
-                      <div className="flex flex-col items-center gap-2">
-                        {formData.file ? (
-                          <>
-                            <Camera className="h-12 w-12 text-primary" />
-                            <p className="text-sm font-medium">{formData.file.name}</p>
-                            <p className="text-xs text-muted-foreground">Click to change</p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-12 w-12 text-muted-foreground" />
-                            <p className="text-sm font-medium">Click to upload photo or video</p>
-                            <p className="text-xs text-muted-foreground">PNG, JPG, MP4 up to 50MB</p>
-                          </>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                </div>
+            {isProcessing && (
+              <div className="text-center my-3 flex items-center justify-center gap-2 text-primary">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <p>Analyzing for license plate...</p>
+              </div>
+            )}
+            {apiError && (
+              <Alert variant="destructive" className="mt-3">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>ANPR Error</AlertTitle>
+                <AlertDescription>{apiError}</AlertDescription>
+              </Alert>
+            )}
 
-                {/* Vehicle Number */}
+            {image && (
+              <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vehicleNumber">Vehicle Number *</Label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
-                    id="vehicleNumber"
-                    placeholder="e.g., ABC-1234"
-                    value={formData.vehicleNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vehicleNumber: e.target.value })
-                    }
-                    required
+                    id="title"
+                    placeholder="Enter violation title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={isProcessing}
                   />
                 </div>
-
-                {/* Violation Type */}
                 <div className="space-y-2">
-                  <Label htmlFor="violationType">Violation Type *</Label>
-                  <Select
-                    value={formData.violationType}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, violationType: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select violation type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      <SelectItem value="speeding">Speeding</SelectItem>
-                      <SelectItem value="red-light">Red Light Violation</SelectItem>
-                      <SelectItem value="wrong-way">Wrong Way Driving</SelectItem>
-                      <SelectItem value="no-helmet">No Helmet</SelectItem>
-                      <SelectItem value="parking">Illegal Parking</SelectItem>
-                      <SelectItem value="lane">Lane Violation</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Location */}
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location *</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="location"
-                      placeholder="e.g., Main Street & 5th Avenue"
-                      className="pl-10"
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="space-y-2">
-                  <Label htmlFor="description">Additional Details</Label>
+                  <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    placeholder="Provide any additional context about the violation..."
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    placeholder="Describe the violation..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={isProcessing}
                   />
                 </div>
+              </div>
+            )}
 
-                {/* Submit Button */}
-                <Button type="submit" className="w-full" size="lg">
-                  Submit Report
+            <div className="mt-6">
+              {image ? (
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={retakePhoto}
+                    disabled={isProcessing}
+                    className="w-full"
+                  >
+                    <RefreshCcw className="h-4 w-4 mr-2" />
+                    Retake
+                  </Button>
+                  <Button
+                    onClick={handleNext}
+                    disabled={isProcessing}
+                    className="w-full"
+                  >
+                    {isProcessing ? "Processing..." : "Next: Add Details"}
+                    <Send className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={captureImage}
+                  className="w-full text-lg"
+                >
+                  <Camera className="h-6 w-6 mr-2" />
+                  Capture
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

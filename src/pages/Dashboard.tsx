@@ -1,138 +1,151 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/supabaseClient";
 import Navigation from "@/components/Navigation";
-import ReportCard from "@/components/ReportCard";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertTriangle, MapPin } from "lucide-react";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
-// Mock data for demonstration
-const mockReports = [
-  {
-    id: "1",
-    vehicleNumber: "ABC-1234",
-    location: "Main St & 5th Ave",
-    date: "2025-01-15",
-    status: "pending" as const,
-    violationType: "Red Light Violation",
-  },
-  {
-    id: "2",
-    vehicleNumber: "XYZ-5678",
-    location: "Park Ave & 3rd St",
-    date: "2025-01-14",
-    status: "reviewed" as const,
-    violationType: "Speeding",
-  },
-  {
-    id: "3",
-    vehicleNumber: "DEF-9012",
-    location: "Highway 101, Mile 45",
-    date: "2025-01-13",
-    status: "closed" as const,
-    violationType: "Lane Violation",
-  },
-  {
-    id: "4",
-    vehicleNumber: "GHI-3456",
-    location: "Downtown Plaza",
-    date: "2025-01-12",
-    status: "pending" as const,
-    violationType: "Illegal Parking",
-  },
-];
+// Define Report Type
+interface Report {
+  id: string;
+  created_at: string;
+  image_url: string;
+  location_name: string;
+  severity: "Low" | "Medium" | "High";
+  title: string;
+  description: string;
+  // --- MODIFIED HERE ---
+  // Supabase join returns an array, even for one-to-one
+  violation_types: { name: string; }[]; 
+}
 
-const Dashboard = () => {
-  const { toast } = useToast();
-  const [reports, setReports] = useState(mockReports);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+const ReportsFeed = () => {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleEdit = (id: string) => {
-    toast({
-      title: "Edit Report",
-      description: `Edit functionality for report ${id} will be available soon.`,
-    });
+  useEffect(() => {
+    const fetchReports = async () => {
+      const { data, error } = await supabase
+        .from("reports")
+        .select(
+          `
+          id,
+          created_at,
+          image_url,
+          location_name,
+          severity,
+          title, 
+          description,
+          violation_types ( name )
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        setError("Could not fetch the reports feed.");
+        console.error(error);
+      } else {
+        // --- CASTING IS NOW CORRECT ---
+        setReports(data as Report[]);
+      }
+      setLoading(false);
+    };
+
+    fetchReports();
+  }, []);
+
+  const getSeverityBadge = (severity: string) => {
+    switch (severity) {
+      case "High":
+        return "destructive";
+      case "Medium":
+        return "secondary";
+      default:
+        return "default";
+    }
   };
-
-  const handleDelete = (id: string) => {
-    setReports(reports.filter((report) => report.id !== id));
-    toast({
-      title: "Report Deleted",
-      description: "The report has been successfully deleted.",
-      variant: "destructive",
-    });
-  };
-
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch =
-      report.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === "all" || report.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-muted/20">
       <Navigation />
-      
       <div className="container mx-auto px-4 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">My Reports</h1>
-          <p className="text-muted-foreground text-lg">
-            Track and manage your submitted violation reports
-          </p>
-        </div>
+        <h1 className="text-4xl font-bold mb-8 text-center">
+          Violation Reports
+        </h1>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by vehicle number or location..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="sm:w-[200px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover">
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="reviewed">Under Review</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Reports Grid */}
-        {filteredReports.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredReports.map((report) => (
-              <ReportCard
-                key={report.id}
-                {...report}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No reports found</p>
-            <Button variant="outline" className="mt-4" asChild>
-              <a href="/report">Create Your First Report</a>
-            </Button>
+        {loading && (
+          <div className="flex justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         )}
+
+        {error && (
+          <Alert variant="destructive" className="max-w-lg mx-auto">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {reports.map((report) => (
+            <Card key={report.id} className="shadow-lg">
+              <CardHeader>
+                <AspectRatio ratio={16 / 9} className="bg-muted">
+                  <img
+                    src={report.image_url}
+                    // --- MODIFIED HERE ---
+                    alt={report.title || report.violation_types[0]?.name}
+                    className="rounded-t-lg object-cover w-full h-full"
+                  />
+                </AspectRatio>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center mb-2">
+                  <Badge variant="outline">
+                    {/* --- MODIFIED HERE --- */}
+                    {report.violation_types[0]?.name}
+                  </Badge>
+                  <Badge variant={getSeverityBadge(report.severity)}>
+                    {report.severity}
+                  </Badge>
+                </div>
+                <CardTitle className="mb-1 text-lg">
+                  {/* --- MODIFIED HERE --- */}
+                  {report.title || report.violation_types[0]?.name}
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  {report.description}
+                </CardDescription>
+                {report.location_name && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                    <MapPin className="h-3 w-3" />
+                    {report.location_name}
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <small className="text-xs text-muted-foreground">
+                  Reported on:{" "}
+                  {new Date(report.created_at).toLocaleDateString()}
+                </small>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default ReportsFeed;
