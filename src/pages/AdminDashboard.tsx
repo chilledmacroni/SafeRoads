@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
 import { Session } from "@supabase/supabase-js";
@@ -53,6 +53,8 @@ import {
   LogOut,
   ExternalLink,
   ShieldAlert,
+  Users,
+  FileText,
 } from "lucide-react";
 
 // 🗺️ Map Imports
@@ -60,6 +62,20 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+
+// 📊 Chart Imports
+import {
+  Bar,
+  BarChart,
+  Pie,
+  PieChart,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 // --- Fix default Leaflet marker icons ---
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -95,6 +111,7 @@ interface Report {
   violation_type_id: number;
   profile: Profile | null;
   violation_type: ViolationType | null;
+  created_at: string;
 }
 
 // --- Main Dashboard Component ---
@@ -225,8 +242,9 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
           <Loader2 className="h-10 w-10 animate-spin" />
         </div>
       ) : (
-        <Tabs defaultValue="reports">
-          <TabsList>
+        <Tabs defaultValue="overview">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="reports">Reports ({reports.length})</TabsTrigger>
             <TabsTrigger value="profiles">
               Profiles ({profiles.length})
@@ -234,8 +252,16 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
             <TabsTrigger value="violationTypes">
               Violation Types ({violationTypes.length})
             </TabsTrigger>
-            <TabsTrigger value="map">Map View</TabsTrigger>
           </TabsList>
+
+          {/* NEW OVERVIEW TAB (Merged Analytics & Map) */}
+          <TabsContent value="overview" className="mt-4">
+            <OverviewTab
+              reports={reports}
+              profiles={profiles}
+              violationTypes={violationTypes}
+            />
+          </TabsContent>
 
           <TabsContent value="reports" className="mt-4">
             <ReportsTable reports={reports} handleDelete={handleDelete} />
@@ -251,10 +277,6 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
               handleDelete={handleDelete}
               handleSubmit={handleViolationTypeSubmit}
             />
-          </TabsContent>
-
-          <TabsContent value="map" className="mt-4">
-            <ReportsMap reports={reports} />
           </TabsContent>
         </Tabs>
       )}
@@ -632,6 +654,206 @@ const ReportsMap = ({ reports }: { reports: Report[] }) => {
         )}
       </CardContent>
     </Card>
+  );
+};
+
+// --- 📊 NEW OVERVIEW TAB (Merged Analytics & Map) 🗺️ ---
+const OverviewTab = ({
+  reports,
+  profiles,
+  violationTypes,
+}: {
+  reports: Report[];
+  profiles: Profile[];
+  violationTypes: ViolationType[];
+}) => {
+  return (
+    <div className="space-y-6">
+      {/* Render the analytics cards and charts */}
+      <AnalyticsTab
+        reports={reports}
+        profiles={profiles}
+        violationTypes={violationTypes}
+      />
+
+      {/* Render the map */}
+      <ReportsMap reports={reports} />
+    </div>
+  );
+};
+
+// --- 📊 ANALYTICS COMPONENTS 📊 ---
+
+// --- Analytics Tab (Content) ---
+const AnalyticsTab = ({
+  reports,
+  profiles,
+  violationTypes,
+}: {
+  reports: Report[];
+  profiles: Profile[];
+  violationTypes: ViolationType[];
+}) => {
+  const totalReports = reports.length;
+  const totalProfiles = profiles.length;
+  const unresolvedReports = reports.filter((r) => !r.is_resolved).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Stat Cards Grid */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalReports}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Unresolved Reports
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{unresolvedReports}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalProfiles}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Reports by Severity</CardTitle>
+            <CardDescription>
+              Distribution of report severity levels.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SeverityChart reports={reports} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Reports by Type</CardTitle>
+            <CardDescription>
+              Most common violation types reported.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ViolationTypeChart
+              reports={reports}
+              violationTypes={violationTypes}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// --- Severity Pie Chart ---
+const SeverityChart = ({ reports }: { reports: Report[] }) => {
+  const data = useMemo(() => {
+    const counts = { Low: 0, Medium: 0, High: 0 };
+    for (const report of reports) {
+      if (counts[report.severity] !== undefined) {
+        counts[report.severity]++;
+      }
+    }
+    return [
+      { name: "Low", value: counts.Low },
+      { name: "Medium", value: counts.Medium },
+      { name: "High", value: counts.High },
+    ].filter((d) => d.value > 0); // Filter out empty values
+  }, [reports]);
+
+  const COLORS = {
+    Low: "#22c55e", // green
+    Medium: "#f59e0b", // amber
+    High: "#ef4444", // red
+  };
+
+  return (
+    <div className="h-[350px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={100}
+            fill="#8884d8"
+            label={(entry) => `${entry.name} (${entry.value})`}
+          >
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[entry.name as keyof typeof COLORS]}
+              />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// --- Violation Type Bar Chart ---
+const ViolationTypeChart = ({
+  reports,
+  violationTypes,
+}: {
+  reports: Report[];
+  violationTypes: ViolationType[];
+}) => {
+  const data = useMemo(() => {
+    const counts = new Map<string, number>();
+    const typeMap = new Map(violationTypes.map((v) => [v.id, v.name]));
+
+    for (const report of reports) {
+      const name = typeMap.get(report.violation_type_id) || "Unknown";
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count); // Sort descending
+  }, [reports, violationTypes]);
+
+  return (
+    <div className="h-[350px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical">
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={100}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip />
+          <Bar dataKey="count" fill="#8884d8" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
