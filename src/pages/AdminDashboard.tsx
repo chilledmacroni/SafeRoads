@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
-import { Session } from "@supabase/supabase-js"; // Import Session
+import { Session } from "@supabase/supabase-js";
 import {
   Card,
   CardContent,
@@ -55,6 +55,23 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
+// 🗺️ Map Imports
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// --- Fix default Leaflet marker icons ---
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
+
 // --- Type Definitions ---
 interface Profile {
   id: string;
@@ -83,8 +100,6 @@ interface Report {
 // --- Main Dashboard Component ---
 const AdminDashboard = ({ session }: { session: Session | null }) => {
   const navigate = useNavigate();
-  
-  // Check if the user is an admin based on their email in the session
   const isAdmin = session?.user?.email?.includes("admin") || false;
 
   const handleLogout = async () => {
@@ -92,7 +107,6 @@ const AdminDashboard = ({ session }: { session: Session | null }) => {
     navigate("/");
   };
 
-  // If the user is not an admin, show an "Access Denied" page
   if (!isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/20">
@@ -116,7 +130,6 @@ const AdminDashboard = ({ session }: { session: Session | null }) => {
     );
   }
 
-  // If the user *is* an admin, show the dashboard
   return <DashboardView onLogout={handleLogout} />;
 };
 
@@ -171,32 +184,16 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
   }, []);
 
   const handleDelete = async (table: string, id: string | number) => {
-    // This will now work because the logged-in user is an admin
     const { error } = await supabase.from(table).delete().eq("id", id);
-    if (error) setError(error.message);
-    else fetchData(); // Refresh data
-  };
-
-  const toggleResolved = async (id: number, currentValue: boolean) => {
-    // This will also work now
-    const { error } = await supabase
-      .from("reports")
-      .update({ is_resolved: !currentValue })
-      .eq("id", id);
     if (error) setError(error.message);
     else fetchData();
   };
 
-  const handleViolationTypeSubmit = async (
-    type: Partial<ViolationType>
-  ) => {
+  const handleViolationTypeSubmit = async (type: Partial<ViolationType>) => {
     let query;
     const { id, ...formData } = type;
     if (id) {
-      query = supabase
-        .from("violation_types")
-        .update(formData)
-        .eq("id", id);
+      query = supabase.from("violation_types").update(formData).eq("id", id);
     } else {
       query = supabase.from("violation_types").insert([formData]);
     }
@@ -231,20 +228,19 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
         <Tabs defaultValue="reports">
           <TabsList>
             <TabsTrigger value="reports">Reports ({reports.length})</TabsTrigger>
-            <TabsTrigger value="profiles">Profiles ({profiles.length})</TabsTrigger>
+            <TabsTrigger value="profiles">
+              Profiles ({profiles.length})
+            </TabsTrigger>
             <TabsTrigger value="violationTypes">
               Violation Types ({violationTypes.length})
             </TabsTrigger>
+            <TabsTrigger value="map">Map View</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="reports" className="mt-4">
-            <ReportsTable
-              reports={reports}
-              handleDelete={handleDelete}
-              toggleResolved={toggleResolved}
-            />
+            <ReportsTable reports={reports} handleDelete={handleDelete} />
           </TabsContent>
-          
+
           <TabsContent value="profiles" className="mt-4">
             <ProfilesTable profiles={profiles} handleDelete={handleDelete} />
           </TabsContent>
@@ -256,32 +252,37 @@ const DashboardView = ({ onLogout }: { onLogout: () => void }) => {
               handleSubmit={handleViolationTypeSubmit}
             />
           </TabsContent>
+
+          <TabsContent value="map" className="mt-4">
+            <ReportsMap reports={reports} />
+          </TabsContent>
         </Tabs>
       )}
     </div>
   );
 };
 
-// --- Reports Table Component (Unchanged) ---
+// --- Reports Table ---
 const ReportsTable = ({
   reports,
   handleDelete,
-  toggleResolved,
 }: {
   reports: Report[];
   handleDelete: (table: string, id: number) => void;
-  toggleResolved: (id: number, current: boolean) => void;
 }) => {
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
-      case "High": return "destructive";
-      case "Medium": return "secondary";
-      default: return "default";
+      case "High":
+        return "destructive";
+      case "Medium":
+        return "secondary";
+      default:
+        return "default";
     }
   };
 
   const renderLocation = (r: Report) => {
-    const mapUrl = `http://googleusercontent.com/maps/google.com/0{r.latitude},${r.longitude}`;
+    const mapUrl = `https://www.google.com/maps?q=${r.latitude},${r.longitude}`;
     return (
       <div>
         <div>{r.location_name || "Unnamed Location"}</div>
@@ -307,7 +308,6 @@ const ReportsTable = ({
             <TableHead>Reported By</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Severity</TableHead>
-            {/* <TableHead>Status</TableHead> */}
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -332,7 +332,9 @@ const ReportsTable = ({
                   >
                     {r.profile.display_name}
                   </Link>
-                ) : ( "Anonymous" )}
+                ) : (
+                  "Anonymous"
+                )}
               </TableCell>
               <TableCell>{renderLocation(r)}</TableCell>
               <TableCell>
@@ -340,15 +342,6 @@ const ReportsTable = ({
                   {r.severity}
                 </Badge>
               </TableCell>
-              {/* <TableCell>
-                <Button
-                  variant={r.is_resolved ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => toggleResolved(r.id, r.is_resolved)}
-                >
-                  {r.is_resolved ? "Resolved" : "Pending"}
-                </Button>
-              </TableCell> */}
               <TableCell>
                 <DeleteAlert onConfirm={() => handleDelete("reports", r.id)} />
               </TableCell>
@@ -360,7 +353,7 @@ const ReportsTable = ({
   );
 };
 
-// --- Profiles Table Component (Unchanged) ---
+// --- Profiles Table ---
 const ProfilesTable = ({
   profiles,
   handleDelete,
@@ -396,7 +389,7 @@ const ProfilesTable = ({
   </Card>
 );
 
-// --- Violation Types Table Component (Unchanged) ---
+// --- Violation Types Table ---
 const ViolationTypesTable = ({
   violationTypes,
   handleDelete,
@@ -453,7 +446,7 @@ const ViolationTypesTable = ({
   </Card>
 );
 
-// --- Violation Type Edit/Add Modal ---
+// --- Violation Type Modal ---
 const ViolationTypeModal = ({
   trigger,
   onSubmit,
@@ -503,49 +496,143 @@ const ViolationTypeModal = ({
             <Textarea
               id="description"
               value={description}
-              // --- THIS IS THE CORRECTED LINE ---
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="ghost">Cancel</Button>
+            <Button variant="outline">Cancel</Button>
           </DialogClose>
-          <Button onClick={handleSubmit}>Save Changes</Button>
+          <Button onClick={handleSubmit}>
+            {editType ? "Update Type" : "Add Type"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 };
 
-// --- Delete Confirmation Alert (Unchanged) ---
-const DeleteAlert = ({ onConfirm }: { onConfirm: () => void }) => (
-  <AlertDialog>
-    <AlertDialogTrigger asChild>
-      <Button variant="destructive" size="icon">
-        <Trash className="h-4 w-4" />
-      </Button>
-    </AlertDialogTrigger>
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-        <AlertDialogDescription>
-          This action cannot be undone. This will permanently delete the
-          record.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel>Cancel</AlertDialogCancel>
-        <AlertDialogAction
-          onClick={onConfirm}
-          className="bg-destructive hover:bg-destructive/90"
-        >
-          Delete
-        </AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
-);
+// --- Reusable Delete Alert Component ---
+const DeleteAlert = ({ onConfirm }: { onConfirm: () => void }) => {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="destructive" size="icon">
+          <Trash className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the item
+            from the database.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
+// --- Reports Map Component ---
+const ReportsMap = ({ reports }: { reports: Report[] }) => {
+  const validReports = reports.filter((r) => r.latitude && r.longitude);
+  const center = [22.9734, 78.6569]; // MP approx center
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+      case "high":
+        return "red";
+      case "medium":
+        return "orange";
+      case "low":
+        return "green";
+      default:
+        return "blue";
+    }
+  };
+
+  const createCustomIcon = (color: string) =>
+    new L.Icon({
+      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+      shadowUrl:
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+    });
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader>
+        <CardTitle>Report Concentration Map</CardTitle>
+        <CardDescription>
+          Explore report hotspots and violation clusters.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {validReports.length === 0 ? (
+          <p className="text-center text-muted-foreground py-10">
+            No reports with location data.
+          </p>
+        ) : (
+          <div className="h-[600px] w-full rounded-lg overflow-hidden">
+            <MapContainer
+              center={center as any}
+              zoom={6}
+              scrollWheelZoom
+              className="h-full w-full z-0"
+            >
+              <TileLayer
+                attribution='© <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MarkerClusterGroup chunkedLoading>
+                {validReports.map((r) => (
+                  <Marker
+                    key={r.id}
+                    position={[r.latitude, r.longitude] as any}
+                    icon={createCustomIcon(getSeverityColor(r.severity))}
+                  >
+                    <Popup>
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-sm">
+                          {r.violation_type?.name || "Unknown Violation"}
+                        </h3>
+                        <p className="text-xs">
+                          Severity:{" "}
+                          <span className="font-semibold">{r.severity}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.location_name || "Unnamed Location"}
+                        </p>
+                        {r.image_url && (
+                          <a
+                            href={r.image_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline"
+                          >
+                            View Image
+                          </a>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MarkerClusterGroup>
+            </MapContainer>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export default AdminDashboard;
