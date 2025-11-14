@@ -23,10 +23,11 @@ interface Report {
   severity: "Low" | "Medium" | "High";
   title: string;
   description: string;
+  // --- FIX: Changed from an array to a single object or null ---
   violation_types: {
     name: string;
     description: string;
-  }[];
+  } | null;
 }
 
 const ReportsFeed = () => {
@@ -56,6 +57,7 @@ const ReportsFeed = () => {
         setError("Could not fetch the reports feed.");
         console.error(error);
       } else {
+        // --- FIX: This cast is now correct because the interface matches ---
         setReports(data as Report[]);
       }
       setLoading(false);
@@ -104,7 +106,8 @@ const ReportsFeed = () => {
                 <AspectRatio ratio={16 / 9} className="bg-muted">
                   <img
                     src={report.image_url}
-                    alt={report.title || report.violation_types[0]?.name}
+                    // --- FIX: Removed [0] array indexing ---
+                    alt={report.title || report.violation_types?.name}
                     className="rounded-t-lg object-cover w-full h-full"
                   />
                 </AspectRatio>
@@ -112,7 +115,8 @@ const ReportsFeed = () => {
               <CardContent>
                 <div className="flex justify-between items-center mb-2">
                   <Badge variant="outline">
-                    {report.violation_types[0]?.name}
+                    {/* --- FIX: Removed [0] array indexing --- */}
+                    {report.violation_types?.name}
                   </Badge>
                   <Badge variant={getSeverityBadge(report.severity)}>
                     {report.severity}
@@ -120,7 +124,8 @@ const ReportsFeed = () => {
                 </div>
 
                 <p className="text-xs text-muted-foreground mb-2">
-                  {report.violation_types[0]?.description}
+                  {/* --- FIX: Removed [0] array indexing --- */}
+                  {report.violation_types?.description}
                 </p>
 
                 <CardTitle className="mb-1 text-lg">

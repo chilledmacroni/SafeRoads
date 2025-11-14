@@ -6,7 +6,7 @@ const About = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <Navigation />
-      
+
       <div className="container mx-auto px-4 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
@@ -17,8 +17,8 @@ const About = () => {
             </span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Empowering communities to create safer roads through citizen reporting
-            and civic engagement
+            Empowering communities to create safer roads through citizen
+            reporting and civic engagement
           </p>
         </div>
 
@@ -30,10 +30,11 @@ const About = () => {
                 <div>
                   <h2 className="text-3xl font-bold mb-4">Our Mission</h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    SafeRoads is dedicated to reducing traffic violations and making our
-                    streets safer for everyone. By empowering citizens to report violations,
-                    we create a collaborative approach to traffic enforcement that benefits
-                    entire communities.
+                    SafeRoads is dedicated to reducing traffic violations and
+                    making our streets safer for everyone. By empowering
+                    citizens to report violations, we create a collaborative
+                    approach to traffic enforcement that benefits entire
+                    communities.
                   </p>
                 </div>
                 <div className="bg-primary/10 rounded-lg p-8 flex items-center justify-center">
@@ -57,8 +58,9 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold">Community Safety</h3>
                 <p className="text-muted-foreground">
-                  Every report helps identify dangerous driving patterns and high-risk areas,
-                  enabling targeted enforcement and education efforts.
+                  Every report helps identify dangerous driving patterns and
+                  high-risk areas, enabling targeted enforcement and education
+                  efforts.
                 </p>
               </CardContent>
             </Card>
@@ -70,8 +72,8 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold">Accountability</h3>
                 <p className="text-muted-foreground">
-                  Photographic evidence ensures violators are held accountable, promoting
-                  responsible driving behavior across the community.
+                  Photographic evidence ensures violators are held accountable,
+                  promoting responsible driving behavior across the community.
                 </p>
               </CardContent>
             </Card>
@@ -83,8 +85,9 @@ const About = () => {
                 </div>
                 <h3 className="text-xl font-semibold">Data-Driven Action</h3>
                 <p className="text-muted-foreground">
-                  Reports create valuable data that helps authorities make informed decisions
-                  about traffic management and road safety improvements.
+                  Reports create valuable data that helps authorities make
+                  informed decisions about traffic management and road safety
+                  improvements.
                 </p>
               </CardContent>
             </Card>
@@ -95,16 +98,21 @@ const About = () => {
         <div className="mb-16">
           <Card className="border-2 bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl shadow-lg">
             <CardContent className="pt-6">
-              <h2 className="text-3xl font-bold mb-8 text-center">Our Process</h2>
+              <h2 className="text-3xl font-bold mb-8 text-center">
+                Our Process
+              </h2>
               <div className="space-y-6">
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
                     1
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg mb-2">Report Submission</h3>
+                    <h3 className="font-semibold text-lg mb-2">
+                      Report Submission
+                    </h3>
                     <p className="text-muted-foreground">
-                      Citizens submit violation reports with photo/video evidence through our platform.
+                      Citizens submit violation reports with photo/video
+                      evidence through our platform.
                     </p>
                   </div>
                 </div>
@@ -114,9 +122,12 @@ const About = () => {
                     2
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg mb-2">Review & Verification</h3>
+                    <h3 className="font-semibold text-lg mb-2">
+                      Review & Verification
+                    </h3>
                     <p className="text-muted-foreground">
-                      Authorized personnel review each report to verify the violation and evidence quality.
+                      Authorized personnel review each report to verify the
+                      violation and evidence quality.
                     </p>
                   </div>
                 </div>
@@ -126,9 +137,12 @@ const About = () => {
                     3
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg mb-2">Investigation</h3>
+                    <h3 className="font-semibold text-lg mb-2">
+                      Investigation
+                    </h3>
                     <p className="text-muted-foreground">
-                      Valid reports are forwarded to traffic authorities for appropriate action.
+                      Valid reports are forwarded to traffic authorities for
+                      appropriate action.
                     </p>
                   </div>
                 </div>
@@ -140,7 +154,8 @@ const About = () => {
                   <div>
                     <h3 className="font-semibold text-lg mb-2">Resolution</h3>
                     <p className="text-muted-foreground">
-                      You receive updates on your report status as the case is processed and resolved.
+                      You receive updates on your report status as the case is
+                      processed and resolved.
                     </p>
                   </div>
                 </div>
@@ -150,7 +165,7 @@ const About = () => {
         </div>
 
         {/* Statistics Section */}
-        <div className="text-center">
+        {/* <div className="text-center">
           <h2 className="text-3xl font-bold mb-8">Making an Impact</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="border-2 rounded-3xl hover:shadow-lg transition-shadow">
@@ -172,7 +187,7 @@ const About = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

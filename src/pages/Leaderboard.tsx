@@ -3,12 +3,17 @@ import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, TrendingUp, Star, Loader2, AlertTriangle } from "lucide-react";
+import {
+  Trophy,
+  Medal,
+  TrendingUp,
+  Star,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/supabaseClient";
-// --- IMPORT ADDED HERE ---
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
 
 // Define types
 interface LeaderboardUser {
@@ -21,19 +26,41 @@ const Leaderboard = () => {
   const [users, setUsers] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalReports, setTotalReports] = useState<number | null>(null);
+  const [activeReporters, setActiveReporters] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      // Call the database function from P2
-      const { data, error } = await supabase.rpc("get_leaderboard");
+      setLoading(true);
+      setError(null);
+      try {
+        // Call the database function
+        const { data, error } = await supabase.rpc("get_leaderboard");
 
-      if (error) {
-        setError("Could not fetch leaderboard data.");
-        console.error(error);
-      } else {
+        if (error) {
+          throw new Error("Could not fetch leaderboard data.");
+        }
+
         setUsers(data as LeaderboardUser[]);
+        // Set active reporters based on leaderboard length
+        setActiveReporters(data.length);
+
+        // Fetch total reports count
+        const { count, error: countError } = await supabase
+          .from("reports")
+          .select("id", { count: "exact", head: true });
+
+        if (countError) {
+          throw new Error("Could not fetch report count.");
+        }
+
+        setTotalReports(count);
+      } catch (error: any) {
+        setError(error.message);
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchLeaderboard();
@@ -65,11 +92,19 @@ const Leaderboard = () => {
       .toUpperCase();
   };
 
-  // Static stats, can be replaced with RPC calls later
+  // Stats are now dynamic and "Resolved Cases" is removed
   const stats = [
-    { label: "Total Reports", value: "12,450", icon: TrendingUp },
-    { label: "Active Reporters", value: "2,341", icon: Star },
-    { label: "Resolved Cases", value: "10,580", icon: Award },
+    {
+      label: "Total Reports",
+      value: totalReports !== null ? totalReports.toLocaleString() : "...",
+      icon: TrendingUp,
+    },
+    {
+      label: "Active Reporters",
+      value:
+        activeReporters !== null ? activeReporters.toLocaleString() : "...",
+      icon: Star,
+    },
   ];
 
   return (
@@ -90,8 +125,8 @@ const Leaderboard = () => {
           </p>
         </div>
 
-        {/* Stats Cards - (Kept from P1, static) */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        {/* Stats Cards - Centered */}
+        <div className="grid md:grid-cols-2 gap-6 mb-12 max-w-2xl mx-auto">
           {stats.map((stat, index) => (
             <Card
               key={stat.label}
@@ -110,13 +145,12 @@ const Leaderboard = () => {
         </div>
 
         {/* --- Data Driven Leaderboard --- */}
-        {loading && (
+        {loading && !users.length && (
           <div className="flex justify-center py-12">
             <Loader2 className="h-10 w-10 animate-spin" />
           </div>
         )}
 
-        {/* --- THIS SECTION IS NOW FIXED --- */}
         {error && (
           <Alert variant="destructive" className="max-w-lg mx-auto my-8">
             <AlertTriangle className="h-4 w-4" />
@@ -125,7 +159,13 @@ const Leaderboard = () => {
           </Alert>
         )}
 
-        {!loading && !error && users.length > 0 && (
+        {!loading && !error && users.length === 0 && (
+          <p className="text-center text-muted-foreground text-lg">
+            No reports have been submitted yet. Be the first!
+          </p>
+        )}
+
+        {!error && users.length > 0 && (
           <>
             {/* Top 3 Podium */}
             <div className="mb-12">
@@ -229,47 +269,49 @@ const Leaderboard = () => {
               </div>
             </div>
 
-            {/* Rest of Leaderboard */}
-            <div className="max-w-4xl mx-auto">
-              <h2 className="text-2xl font-bold mb-6">Top Rankings</h2>
-              <div className="space-y-3">
-                {users.slice(3).map((user, index) => (
-                  <Card
-                    key={user.user_id}
-                    className="rounded-3xl border-2 hover:shadow-lg transition-all hover:border-primary/50 hover:-translate-x-2 animate-fade-in"
-                    style={{ animationDelay: `${(index + 3) * 50}ms` }}
-                  >
-                    <CardContent className="py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-shrink-0 w-16 text-center">
-                          {getRankIcon(index + 4)}
-                        </div>
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-                            {getInitials(user.display_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">
-                            <Link to={`/profile/${user.user_id}`}>
-                              {user.display_name}
-                            </Link>
-                          </h3>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-semibold text-foreground">
-                              {user.report_count}
-                            </span>{" "}
-                            reports
+            {/* Rest of Leaderboard - Renamed Heading */}
+            {/* {users.length > 3 && (
+              <div className="max-w-4xl mx-auto">
+                <h2 className="text-2xl font-bold mb-6">All Reporters</h2>
+                <div className="space-y-3">
+                  {users.slice(3).map((user, index) => (
+                    <Card
+                      key={user.user_id}
+                      className="rounded-3xl border-2 hover:shadow-lg transition-all hover:border-primary/50 hover:-translate-x-2 animate-fade-in"
+                      style={{ animationDelay: `${(index + 3) * 50}ms` }}
+                    >
+                      <CardContent className="py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-16 text-center">
+                            {getRankIcon(index + 4)}
+                          </div>
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                              {getInitials(user.display_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">
+                              <Link to={`/profile/${user.user_id}`}>
+                                {user.display_name}
+                              </Link>
+                            </h3>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              <span className="font-semibold text-foreground">
+                                {user.report_count}
+                              </span>{" "}
+                              reports
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )} */}
           </>
         )}
       </div>

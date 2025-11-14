@@ -100,10 +100,9 @@ const Report = () => {
         if (result.plates && result.plates.length > 0) {
           const plateText = result.plates[0].text;
           setTitle(`Violation by: ${plateText}`);
+          // --- FIX: Removed confidence score from description ---
           setDescription(
-            `License plate ${plateText} detected. Confidence: ${(
-              result.plates[0].recognition_confidence * 100
-            ).toFixed(1)}%`
+            `License plate ${plateText} was automatically detected.`
           );
           toast({
             title: "License Plate Detected",

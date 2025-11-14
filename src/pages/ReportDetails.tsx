@@ -45,7 +45,8 @@ interface Coords {
   longitude: number;
 }
 interface ViolationType {
-  id: string;
+  // --- 1. FIX: Corrected type from string to number ---
+  id: number;
   name: string;
 }
 
@@ -53,15 +54,12 @@ const ReportDetails = ({ session }: { session: Session | null }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const {
-    image,
-    title,
-    description,
-  } = (location.state as {
-    image: string;
-    title: string;
-    description: string;
-  }) || {};
+  const { image, title, description } =
+    (location.state as {
+      image: string;
+      title: string;
+      description: string;
+    }) || {};
 
   const [formData, setFormData] = useState({
     violation_type_id: "",
@@ -253,7 +251,8 @@ const ReportDetails = ({ session }: { session: Session | null }) => {
                   </SelectTrigger>
                   <SelectContent>
                     {violationTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
+                      // --- 2. FIX: Convert number to string for the value prop ---
+                      <SelectItem key={type.id} value={type.id.toString()}>
                         {type.name}
                       </SelectItem>
                     ))}
@@ -309,7 +308,9 @@ const ReportDetails = ({ session }: { session: Session | null }) => {
                 size="lg"
                 disabled={submitting}
               >
-                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {submitting && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 {submitting ? "Submitting..." : "Submit Report"}
               </Button>
             </form>
